@@ -12,17 +12,24 @@
 </head>
 <body>
 <script>
+let frame = null, current = '', loaded = false;
+const YT = 'https://www.youtube.com';
+const send = (func, args = []) => frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), YT);
 function show() {
   const q = new URLSearchParams(location.hash.slice(1));
   const v = q.get('v') || '';
-  if (!/^[A-Za-z0-9_-]{11}$/.test(v)) { document.body.textContent = ''; return; }
+  if (!/^[A-Za-z0-9_-]{11}$/.test(v)) { document.body.textContent = ''; frame = null; current = ''; return; }
   const t = Math.max(0, Math.floor(Number(q.get('t')) || 0));
+  // 같은 영상의 다른 시각은 재생기를 새로 만들지 않고 그 자리로 옮긴다(새로 만들면 광고가 다시 나올 수 있다).
+  if (frame && loaded && v === current) { send('seekTo', [t, true]); send('playVideo'); return; }
   const f = document.createElement('iframe');
   f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
   f.allowFullscreen = true;
   f.referrerPolicy = 'strict-origin-when-cross-origin';
   // 시각을 눌러 온 경우에만 바로 재생한다(처음 열 때는 소리를 내지 않는다).
-  f.src = `https://www.youtube.com/embed/${v}?rel=0${t || q.get('play') ? `&start=${t}&autoplay=1` : ''}`;
+  f.src = `${YT}/embed/${v}?rel=0&enablejsapi=1&origin=${encodeURIComponent(location.origin)}${t || q.get('play') ? `&start=${t}&autoplay=1` : ''}`;
+  frame = f; current = v; loaded = false;
+  f.addEventListener('load', () => { loaded = true; });
   document.body.replaceChildren(f);
 }
 addEventListener('hashchange', show);
